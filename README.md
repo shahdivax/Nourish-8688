@@ -57,7 +57,8 @@ Dev servers are started and managed automatically — no need to run them manual
 
 This repo now includes a root `vercel.json` so Vercel can deploy the web app from the monorepo without extra dashboard configuration.
 
-- Build command: `npm run build --workspace @template/web`
+- Install command: `bun install`
+- Build command: `cd packages/web && bun run build`
 - Output directory: `packages/web/dist`
 - SPA routing: non-file requests fall back to `index.html`
 - API routes: `/api/*` are served by [api/[[...route]].ts](/home/avinyaa/Nourish-8688/api/[[...route]].ts:1)
@@ -66,7 +67,8 @@ If Vercel already has old settings saved for this project, clear them or set:
 
 - Root Directory: `.`
 - Framework Preset: `Vite`
-- Build Command: `npm run build --workspace @template/web`
+- Install Command: `bun install`
+- Build Command: `cd packages/web && bun run build`
 - Output Directory: `packages/web/dist`
 
 ## Database
