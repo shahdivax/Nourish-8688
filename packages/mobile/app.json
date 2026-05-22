@@ -2,7 +2,7 @@
   "expo": {
     "icon": "./assets/icon.png",
     "android": {
-      "package": "com.appId.runable",
+      "package": "com.nourish.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#ffffff"
@@ -13,7 +13,7 @@
       "apiUrl": "https://53o61xhjcvdi2vr4sgj0b-preview-4200.runable.site/"
     },
     "ios": {
-      "bundleIdentifier": "com.appId.runable",
+      "bundleIdentifier": "com.nourish.app",
       "supportsTablet": true
     },
     "splash": {
@@ -21,10 +21,10 @@
       "resizeMode": "cover",
       "backgroundColor": "#ffffff"
     },
-    "name": "mobile",
-    "slug": "mobile",
+    "name": "Nourish",
+    "slug": "nourish",
     "version": "1.0.0",
-    "scheme": "mobile",
+    "scheme": "nourish",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,

@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   ChevronRight, Download, Upload, Trash2, RotateCcw,
-  Bell, User, Target, Info, Cpu, Eye, EyeOff, RefreshCw, Zap,
+  Bell, User, Target, Info, Cpu, Eye, EyeOff, RefreshCw, Zap, Moon,
 } from 'lucide-react';
 import { BottomSheet } from '../components/BottomSheet';
 import type { NourishUser, NourishLogs, FoodEntry, AIProvider } from '../lib/storage';
@@ -24,7 +24,7 @@ function scheduleReminder(key: string, label: string, targetHour: number, target
   const delay = next.getTime() - now.getTime();
   notifTimers[key] = setTimeout(() => {
     if (Notification.permission === 'granted') {
-      new Notification('Nourish', { body: label, icon: '/favicon.ico' });
+      new Notification('Nourish', { body: label, icon: '/logo.svg' });
     }
     scheduleReminder(key, label, targetHour, targetMin);
   }, delay);
@@ -92,24 +92,26 @@ function Row({ label, value, icon, onTap, right, danger, last }: {
   label: string; value?: string; icon?: React.ReactNode;
   onTap?: () => void; right?: React.ReactNode; danger?: boolean; last?: boolean;
 }) {
-  return (
-    <button
-      onClick={onTap}
-      style={{
-        width: '100%', display: 'flex', alignItems: 'center', gap: 12,
-        padding: '14px 16px', background: 'none', border: 'none',
-        borderBottom: last ? 'none' : '1px solid var(--border)',
-        cursor: onTap ? 'pointer' : 'default', textAlign: 'left', minHeight: 52,
-      }}
-    >
+  const style: React.CSSProperties = {
+    width: '100%', display: 'flex', alignItems: 'center', gap: 12,
+    padding: '14px 16px', background: 'none', border: 'none',
+    borderBottom: last ? 'none' : '1px solid var(--border)',
+    cursor: onTap ? 'pointer' : 'default', textAlign: 'left', minHeight: 52,
+  };
+  const content = (
+    <>
       {icon && <div style={{ color: danger ? '#E11D48' : 'var(--accent)', display: 'flex', flexShrink: 0 }}>{icon}</div>}
       <span style={{ fontFamily: 'var(--font-sans)', fontSize: 15, color: danger ? '#E11D48' : 'var(--text)', flex: 1, fontWeight: 500 }}>
         {label}
       </span>
       {right || (value && <span style={{ fontFamily: 'var(--font-sans)', fontSize: 14, color: 'var(--text-secondary)' }}>{value}</span>)}
       {onTap && !right && <ChevronRight size={16} color="var(--text-secondary)" />}
-    </button>
+    </>
   );
+  if (onTap) {
+    return <button type="button" onClick={onTap} style={style}>{content}</button>;
+  }
+  return <div style={style}>{content}</div>;
 }
 
 // ── Provider display names ────────────────────────────────────────────────────
@@ -407,7 +409,7 @@ export default function SettingsPage({
 
   useEffect(() => { setEditValues({ ...user }); }, [user]);
 
-  const tdeePreview = calculateCalorieGoal(
+  const bmrBasedPreview = calculateCalorieGoal(
     editValues.weightKg, editValues.heightCm, editValues.age,
     editValues.sex, editValues.activityLevel, editValues.goal,
   );
@@ -571,7 +573,7 @@ export default function SettingsPage({
         <Section label="Appearance">
           <Row
             label="Dark Mode"
-            icon={<Settings size={16} />}
+            icon={<Moon size={16} />}
             right={
               <Toggle
                 checked={!!user.darkMode}
@@ -758,7 +760,7 @@ export default function SettingsPage({
               style={{ fontFamily: 'var(--font-mono)', fontSize: 18 }}
             />
             <div style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: 'var(--text-secondary)', marginTop: 6 }}>
-              Calculated from stats: {tdeePreview} kcal
+              BMR-based target: {bmrBasedPreview} kcal
               {editValues.manualCalorieOverride && <span style={{ color: 'var(--accent)', marginLeft: 6 }}>· manually overridden</span>}
             </div>
           </div>
@@ -804,14 +806,6 @@ export default function SettingsPage({
               if (!raw) return;
               const kg = raw;
               onLogWeight(kg);
-              // Auto-recalculate calorie goal if not manually overridden
-              if (!user.manualCalorieOverride) {
-                const newCal = calculateCalorieGoal(kg, user.heightCm, user.age, user.sex, user.activityLevel, user.goal);
-                const macros = calculateMacros(newCal, user.goal);
-                onUpdateUser({ ...user, weightKg: kg, calorieGoal: newCal, macroTargets: macros });
-              } else {
-                onUpdateUser({ ...user, weightKg: kg });
-              }
               onToast('Weight logged!');
               setWeightInput('');
               setWeightSheet(false);

@@ -127,17 +127,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
 function Step0({ onNext }: { onNext: () => void }) {
   return (
     <div style={{ padding: '60px 24px 40px', display: 'flex', flexDirection: 'column', alignItems: 'center', minHeight: '100vh', justifyContent: 'center' }}>
-      <svg width="72" height="72" viewBox="0 0 72 72" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginBottom: 24 }}>
-        <rect width="72" height="72" rx="18" fill="var(--accent-light)" />
-        <line x1="26" y1="18" x2="26" y2="28" stroke="var(--accent)" strokeWidth="2.5" strokeLinecap="round" />
-        <line x1="22" y1="18" x2="22" y2="26" stroke="var(--accent)" strokeWidth="2.5" strokeLinecap="round" />
-        <line x1="30" y1="18" x2="30" y2="26" stroke="var(--accent)" strokeWidth="2.5" strokeLinecap="round" />
-        <path d="M22 26 C22 30 26 32 26 32 L26 54" stroke="var(--accent)" strokeWidth="2.5" strokeLinecap="round" />
-        <ellipse cx="46" cy="42" rx="14" ry="10" stroke="var(--accent)" strokeWidth="2.5" />
-        <ellipse cx="46" cy="42" rx="9" ry="6" stroke="var(--accent)" strokeWidth="1.5" opacity="0.5" />
-        <line x1="46" y1="28" x2="46" y2="32" stroke="var(--accent)" strokeWidth="2.5" strokeLinecap="round" />
-        <path d="M42 32 C42 29 50 29 50 32 L50 33 L42 33 Z" fill="var(--accent)" />
-      </svg>
+      <img src="/logo.svg" alt="Nourish logo" width="72" height="72" style={{ marginBottom: 24, display: 'block' }} />
       <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 42, color: 'var(--text)', margin: '0 0 12px', textAlign: 'center', lineHeight: 1.1 }}>
         Nourish
       </h1>
@@ -210,7 +200,7 @@ function Step2({ draft, up, onNext, onBack }: {
         <span style={{ fontFamily: 'var(--font-sans)', fontSize: 14 }}>Back</span>
       </button>
       <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 28, color: 'var(--text)', margin: '0 0 6px' }}>Body stats</h2>
-      <p style={{ fontFamily: 'var(--font-sans)', fontSize: 14, color: 'var(--text-secondary)', margin: '0 0 28px' }}>Used to calculate your calorie target</p>
+      <p style={{ fontFamily: 'var(--font-sans)', fontSize: 14, color: 'var(--text-secondary)', margin: '0 0 28px' }}>Used to calculate your BMR-based calorie target</p>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div>
           <label className="label-caps" style={{ display: 'block', marginBottom: 8 }}>Weight (kg)</label>
@@ -315,7 +305,7 @@ function Step3({ draft, up, computedCalories, calorieGoal, onBack, onComplete }:
         <span style={{ fontFamily: 'var(--font-sans)', fontSize: 14 }}>Back</span>
       </button>
       <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 28, color: 'var(--text)', margin: '0 0 6px' }}>Your goal</h2>
-      <p style={{ fontFamily: 'var(--font-sans)', fontSize: 14, color: 'var(--text-secondary)', margin: '0 0 24px' }}>We'll set your daily calorie target</p>
+      <p style={{ fontFamily: 'var(--font-sans)', fontSize: 14, color: 'var(--text-secondary)', margin: '0 0 24px' }}>We'll set your daily target from BMR, with goal-based adjustment</p>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 24 }}>
         {goals.map(g => (

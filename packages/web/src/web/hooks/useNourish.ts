@@ -6,7 +6,7 @@ import {
   getHabitsData, saveHabitsData,
   type NourishUser, type FoodEntry, type DayLog, type NourishLogs, type HabitsData,
 } from '../lib/storage';
-import { todayKey } from '../lib/calculations';
+import { calculateCalorieGoal, calculateMacros, todayKey } from '../lib/calculations';
 
 // ─── State ───────────────────────────────────────────────────────────────────
 
@@ -90,7 +90,29 @@ function reducer(state: AppState, action: Action): AppState {
 
     case 'LOG_WEIGHT': {
       const existing = state.logs[action.date] ?? { water: 0, foods: [] };
-      return { ...state, logs: { ...state.logs, [action.date]: { ...existing, weight: action.weight } } };
+      const logs = { ...state.logs, [action.date]: { ...existing, weight: action.weight } };
+      if (!state.user) return { ...state, logs };
+
+      const updatedUser = state.user.manualCalorieOverride
+        ? { ...state.user, weightKg: action.weight }
+        : (() => {
+            const calorieGoal = calculateCalorieGoal(
+              action.weight,
+              state.user.heightCm,
+              state.user.age,
+              state.user.sex,
+              state.user.activityLevel,
+              state.user.goal,
+            );
+            return {
+              ...state.user,
+              weightKg: action.weight,
+              calorieGoal,
+              macroTargets: calculateMacros(calorieGoal, state.user.goal),
+            };
+          })();
+
+      return { ...state, logs, user: updatedUser };
     }
 
     case 'CLEAR_DAY': {

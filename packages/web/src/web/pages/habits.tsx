@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Plus, Trash2, X, Check } from 'lucide-react';
 import { BottomSheet } from '../components/BottomSheet';
 import type { Habit, HabitColor, HabitsData } from '../lib/storage';
@@ -13,7 +13,9 @@ const COLORS: HabitColor[] = [
 
 const EMOJIS = ['💪', '📚', '🏃', '🧘', '💧', '🥗', '🎯', '✍️', '🎸', '💻', '🌿', '🛌', '🚴', '🧠', '🎨'];
 
-const GRID_DAYS = 105; // 15 weeks
+const GRID_MONTHS = 6;
+const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const DAY_LABEL_ROWS = [1, 3, 5]; // Mon / Wed / Fri like GitHub
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -31,17 +33,62 @@ function daysBetween(a: string, b: string): number {
   return Math.round((new Date(b + 'T12:00:00').getTime() - new Date(a + 'T12:00:00').getTime()) / 86400000);
 }
 
-function buildGrid(habit: Habit): string[] {
-  // Show last GRID_DAYS days ending today
+function sixMonthsAgo(): string {
+  const d = new Date();
+  d.setMonth(d.getMonth() - GRID_MONTHS);
+  return d.toISOString().split('T')[0];
+}
+
+/** Align to Sunday so columns are Sun→Sat (GitHub-style). */
+function weekStartSunday(dateStr: string): string {
+  const d = new Date(dateStr + 'T12:00:00');
+  d.setDate(d.getDate() - d.getDay());
+  return d.toISOString().split('T')[0];
+}
+
+type CellState = 'spacer' | 'inactive' | 'future' | 'done' | 'missed';
+
+function cellState(date: string | null, habit: Habit, failedDates: Set<string>): CellState {
+  if (!date) return 'spacer';
   const today = todayStr();
-  const days: string[] = [];
-  for (let i = GRID_DAYS - 1; i >= 0; i--) {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
-    days.push(d.toISOString().split('T')[0]);
+  if (date > today) return 'future';
+  if (date < habit.createdAt) return 'inactive';
+  return failedDates.has(date) ? 'missed' : 'done';
+}
+
+/** Six months ending today; weeks as columns (oldest left, current month right). */
+function buildGitHubWeeks(): (string | null)[][] {
+  const today = todayStr();
+  const rangeStart = sixMonthsAgo();
+  let d = weekStartSunday(rangeStart);
+  const flat: (string | null)[] = [];
+  while (d <= today) {
+    flat.push(d);
+    d = addDays(d, 1);
   }
-  // Only show from habit creation date
-  return days.filter(d => d >= habit.createdAt);
+  const lastDow = new Date(today + 'T12:00:00').getDay();
+  for (let i = lastDow + 1; i <= 6; i++) flat.push(null);
+
+  const weeks: (string | null)[][] = [];
+  for (let i = 0; i < flat.length; i += 7) {
+    weeks.push(flat.slice(i, i + 7));
+  }
+  return weeks;
+}
+
+function monthLabelsForWeeks(weeks: (string | null)[][]): { label: string; col: number }[] {
+  const labels: { label: string; col: number }[] = [];
+  let lastMonth = '';
+  weeks.forEach((week, wi) => {
+    const first = week.find(d => d !== null);
+    if (!first) return;
+    const m = new Date(first + 'T12:00:00').toLocaleString('en-US', { month: 'short' });
+    if (m !== lastMonth) {
+      labels.push({ label: m, col: wi });
+      lastMonth = m;
+    }
+  });
+  return labels;
 }
 
 function getCurrentStreak(habit: Habit, failedDates: Set<string>): number {
@@ -60,13 +107,52 @@ function getCurrentStreak(habit: Habit, failedDates: Set<string>): number {
 
 function getCompletionRate(habit: Habit, failedDates: Set<string>): number {
   const today = todayStr();
-  const total = Math.min(GRID_DAYS, daysBetween(habit.createdAt, today) + 1);
+  const windowStart = sixMonthsAgo();
+  const trackFrom = habit.createdAt > windowStart ? habit.createdAt : windowStart;
+  const total = daysBetween(trackFrom, today) + 1;
   if (total <= 0) return 100;
-  const failed = Array.from(failedDates).filter(d => d >= habit.createdAt && d <= today).length;
+  const failed = Array.from(failedDates).filter(
+    d => d >= trackFrom && d <= today,
+  ).length;
   return Math.round(((total - failed) / total) * 100);
 }
 
 // ── Grid ──────────────────────────────────────────────────────────────────────
+
+function habitCellStyle(state: CellState, habit: Habit, isToday: boolean): React.CSSProperties {
+  const base: React.CSSProperties = {
+    width: '100%',
+    aspectRatio: '1',
+    borderRadius: 3,
+    boxSizing: 'border-box',
+  };
+  switch (state) {
+    case 'spacer':
+      return { ...base, visibility: 'hidden' as const };
+    case 'inactive':
+    case 'future':
+      return {
+        ...base,
+        background: 'var(--subtle)',
+        border: '1px solid var(--border)',
+        opacity: state === 'future' ? 0.45 : 0.7,
+      };
+    case 'missed':
+      return {
+        ...base,
+        background: 'var(--subtle)',
+        border: `1.5px solid ${habit.color}55`,
+      };
+    case 'done':
+      return {
+        ...base,
+        background: habit.color,
+        boxShadow: isToday ? `0 0 0 2px var(--card), 0 0 0 3.5px ${habit.color}` : undefined,
+      };
+    default:
+      return base;
+  }
+}
 
 function HabitGrid({
   habit,
@@ -78,35 +164,20 @@ function HabitGrid({
   onToggle: (date: string) => void;
 }) {
   const today = todayStr();
-  const days = buildGrid(habit);
+  const weeks = useMemo(() => buildGitHubWeeks(), []);
+  const monthLabels = useMemo(() => monthLabelsForWeeks(weeks), [weeks]);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const streak = getCurrentStreak(habit, failedDates);
   const rate = getCompletionRate(habit, failedDates);
 
-  // Pad to full weeks
-  const firstDow = new Date(days[0] + 'T12:00:00').getDay(); // 0=Sun
-  const padded: (string | null)[] = [...Array(firstDow).fill(null), ...days];
-  // Chunk into weeks (columns)
-  const weeks: (string | null)[][] = [];
-  for (let i = 0; i < padded.length; i += 7) {
-    weeks.push(padded.slice(i, i + 7));
-  }
-
-  // Month labels
-  const monthLabels: { label: string; col: number }[] = [];
-  let lastMonth = '';
-  weeks.forEach((week, wi) => {
-    const firstReal = week.find(d => d !== null);
-    if (firstReal) {
-      const m = new Date(firstReal + 'T12:00:00').toLocaleString('en-US', { month: 'short' });
-      if (m !== lastMonth) {
-        monthLabels.push({ label: m, col: wi });
-        lastMonth = m;
-      }
-    }
-  });
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (el) el.scrollLeft = el.scrollWidth;
+  }, [weeks.length, habit.id]);
 
   const CELL = 11;
-  const GAP = 2;
+  const GAP = 3;
+  const LABEL_W = 26;
 
   return (
     <div style={{
@@ -117,19 +188,19 @@ function HabitGrid({
       marginBottom: 12,
     }}>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
         <div style={{
-          width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+          width: 40, height: 40, borderRadius: 12, flexShrink: 0,
           background: habit.color + '22',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 18,
+          fontSize: 20,
         }}>
           {habit.emoji}
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{
             fontFamily: 'var(--font-sans)', fontWeight: 700,
-            fontSize: 15, color: 'var(--text)',
+            fontSize: 16, color: 'var(--text)',
             whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
           }}>
             {habit.name}
@@ -144,84 +215,114 @@ function HabitGrid({
             </div>
           )}
         </div>
-        <div style={{ display: 'flex', gap: 12, flexShrink: 0 }}>
+        <div style={{ display: 'flex', gap: 14, flexShrink: 0 }}>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 15, fontWeight: 700, color: habit.color }}>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 16, fontWeight: 700, color: habit.color }}>
               {streak}
             </div>
             <div style={{ fontFamily: 'var(--font-sans)', fontSize: 10, color: 'var(--text-secondary)' }}>streak</div>
           </div>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 15, fontWeight: 700, color: habit.color }}>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 16, fontWeight: 700, color: habit.color }}>
               {rate}%
             </div>
-            <div style={{ fontFamily: 'var(--font-sans)', fontSize: 10, color: 'var(--text-secondary)' }}>done</div>
+            <div style={{ fontFamily: 'var(--font-sans)', fontSize: 10, color: 'var(--text-secondary)' }}>6 mo</div>
           </div>
         </div>
       </div>
 
-      {/* Month labels */}
-      <div style={{
-        display: 'flex', gap: GAP, marginBottom: 3, paddingLeft: 0,
-        overflow: 'hidden',
-      }}>
-        {weeks.map((_, wi) => {
-          const ml = monthLabels.find(m => m.col === wi);
-          return (
+      {/* GitHub-style grid (scroll starts at current month) */}
+      <div style={{ display: 'flex', gap: 6 }}>
+        <div style={{
+          width: LABEL_W, flexShrink: 0, paddingTop: 16,
+          display: 'grid',
+          gridTemplateRows: `repeat(7, ${CELL}px)`,
+          gap: GAP,
+        }}>
+          {DAY_LABELS.map((label, row) => (
             <div
-              key={wi}
+              key={label}
               style={{
-                width: CELL, flexShrink: 0,
-                fontFamily: 'var(--font-mono)', fontSize: 8,
+                display: 'flex',
+                alignItems: 'center',
+                fontFamily: 'var(--font-sans)',
+                fontSize: 9,
                 color: 'var(--text-secondary)',
-                whiteSpace: 'nowrap', overflow: 'visible',
+                opacity: DAY_LABEL_ROWS.includes(row) ? 1 : 0,
               }}
             >
-              {ml?.label || ''}
+              {label}
             </div>
-          );
-        })}
-      </div>
+          ))}
+        </div>
 
-      {/* Grid: weeks = columns, days of week = rows */}
-      <div style={{ display: 'flex', gap: GAP, overflowX: 'auto' }}>
-        {weeks.map((week, wi) => (
-          <div key={wi} style={{ display: 'flex', flexDirection: 'column', gap: GAP, flexShrink: 0 }}>
-            {week.map((date, di) => {
-              if (!date) {
-                return <div key={di} style={{ width: CELL, height: CELL }} />;
-              }
-              const isFuture = date > today;
-              const isFailed = failedDates.has(date);
-              const isBeforeCreation = date < habit.createdAt;
-              const isDone = !isFailed && !isFuture && !isBeforeCreation;
-              const isToday = date === today;
-
-              let bg: string;
-              if (isBeforeCreation) bg = 'transparent';
-              else if (isFuture) bg = 'var(--border)';
-              else if (isDone) bg = habit.color;
-              else bg = 'var(--border)';
-
+        <div ref={scrollRef} style={{ flex: 1, overflowX: 'auto', overflowY: 'hidden' }}>
+          {/* Month row */}
+          <div style={{ display: 'flex', gap: GAP, marginBottom: 4, height: 12 }}>
+            {weeks.map((_, wi) => {
+              const ml = monthLabels.find(m => m.col === wi);
               return (
                 <div
-                  key={di}
-                  className="habit-cell"
-                  title={date}
-                  onClick={() => !isBeforeCreation && !isFuture && onToggle(date)}
+                  key={wi}
                   style={{
-                    width: CELL, height: CELL,
-                    background: bg,
-                    opacity: isBeforeCreation ? 0 : 1,
-                    outline: isToday ? `2px solid ${habit.color}` : 'none',
-                    outlineOffset: '1px',
-                    cursor: isFuture || isBeforeCreation ? 'default' : 'pointer',
+                    width: CELL, flexShrink: 0,
+                    fontFamily: 'var(--font-sans)', fontSize: 9,
+                    color: 'var(--text-secondary)',
+                    lineHeight: '12px',
                   }}
-                />
+                >
+                  {ml?.label ?? ''}
+                </div>
               );
             })}
           </div>
-        ))}
+
+          {/* Week columns */}
+          <div style={{ display: 'flex', gap: GAP }}>
+            {weeks.map((week, wi) => (
+              <div
+                key={wi}
+                style={{
+                  display: 'grid',
+                  gridTemplateRows: `repeat(7, ${CELL}px)`,
+                  gap: GAP,
+                  flexShrink: 0,
+                  width: CELL,
+                }}
+              >
+                {week.map((date, di) => {
+                  const state = cellState(date, habit, failedDates);
+                  if (state === 'spacer') {
+                    return <div key={di} style={{ width: CELL, height: CELL }} />;
+                  }
+                  const interactive = state === 'done' || state === 'missed';
+                  const label = date
+                    ? new Date(date + 'T12:00:00').toLocaleDateString(undefined, {
+                        weekday: 'short', month: 'short', day: 'numeric',
+                      })
+                    : '';
+                  const stateLabel = state === 'inactive' ? ' · not tracked yet'
+                    : state === 'future' ? ' · upcoming'
+                    : state === 'missed' ? ' · missed'
+                    : ' · done';
+
+                  return (
+                    <div
+                      key={di}
+                      className={interactive ? 'habit-cell' : undefined}
+                      title={label + stateLabel}
+                      onClick={() => date && interactive && onToggle(date)}
+                      style={{
+                        ...habitCellStyle(state, habit, date === today),
+                        cursor: interactive ? 'pointer' : 'default',
+                      }}
+                    />
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -236,7 +337,7 @@ function HabitForm({
   onDelete,
 }: {
   initial?: Habit;
-  onSave: (h: Omit<Habit, 'id' | 'createdAt'>) => void;
+  onSave: (h: Omit<Habit, 'id'>) => void;
   onCancel: () => void;
   onDelete?: () => void;
 }) {
@@ -244,6 +345,7 @@ function HabitForm({
   const [desc, setDesc] = useState(initial?.description ?? '');
   const [color, setColor] = useState<HabitColor>(initial?.color ?? '#22C55E');
   const [emoji, setEmoji] = useState(initial?.emoji ?? '💪');
+  const [startDate, setStartDate] = useState(initial?.createdAt ?? todayStr());
 
   const valid = name.trim().length > 0;
 
@@ -281,6 +383,21 @@ function HabitForm({
           maxLength={40}
           autoFocus
         />
+      </div>
+
+      {/* Start date — backfill past days in the grid */}
+      <div>
+        <div className="label-caps" style={{ marginBottom: 6 }}>Tracking since</div>
+        <input
+          className="input"
+          type="date"
+          max={todayStr()}
+          value={startDate}
+          onChange={e => setStartDate(e.target.value)}
+        />
+        <div style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: 'var(--text-secondary)', marginTop: 6 }}>
+          Pick an earlier date to log habits for days before today.
+        </div>
       </div>
 
       {/* Description */}
@@ -335,7 +452,13 @@ function HabitForm({
         className="btn-primary"
         disabled={!valid}
         style={{ opacity: valid ? 1 : 0.5 }}
-        onClick={() => valid && onSave({ name: name.trim(), description: desc.trim() || undefined, color, emoji })}
+        onClick={() => valid && onSave({
+          name: name.trim(),
+          description: desc.trim() || undefined,
+          color,
+          emoji,
+          createdAt: startDate,
+        })}
       >
         {initial ? 'Save changes' : 'Add habit'}
       </button>
@@ -381,22 +504,26 @@ export default function HabitsPage({ data, onSave }: HabitsPageProps) {
     });
   };
 
-  const handleCreate = (fields: Omit<Habit, 'id' | 'createdAt'>) => {
+  const handleCreate = (fields: Omit<Habit, 'id'>) => {
     const habit: Habit = {
       id: crypto.randomUUID(),
-      createdAt: todayStr(),
       ...fields,
     };
     onSave({ ...data, habits: [...data.habits, habit] });
     setCreateOpen(false);
   };
 
-  const handleEdit = (fields: Omit<Habit, 'id' | 'createdAt'>) => {
+  const handleEdit = (fields: Omit<Habit, 'id'>) => {
     if (!editHabit) return;
     const updated = data.habits.map(h =>
       h.id === editHabit.id ? { ...h, ...fields } : h
     );
-    onSave({ ...data, habits: updated });
+    const failed = (data.failedDates[editHabit.id] ?? []).filter(d => d >= fields.createdAt);
+    onSave({
+      ...data,
+      habits: updated,
+      failedDates: { ...data.failedDates, [editHabit.id]: failed },
+    });
     setEditHabit(null);
   };
 
@@ -491,7 +618,7 @@ export default function HabitsPage({ data, onSave }: HabitsPageProps) {
           fontFamily: 'var(--font-sans)', fontSize: 12,
           color: 'var(--text-secondary)', textAlign: 'center',
         }}>
-          Tap a cell to mark a day as missed. All days auto-count as done.
+          Past 6 months · scroll for history · tap a filled day to mark missed · muted cells = not tracked yet
         </div>
       )}
 

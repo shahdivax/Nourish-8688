@@ -8,22 +8,30 @@ export const ACTIVITY_MULTIPLIERS = {
   very_active: 1.9,
 } as const;
 
-// Mifflin-St Jeor BMR → TDEE → apply goal adjustment
+export function calculateBMR(
+  weightKg: number,
+  heightCm: number,
+  age: number,
+  sex: 'male' | 'female',
+): number {
+  return sex === 'male'
+    ? 10 * weightKg + 6.25 * heightCm - 5 * age + 5
+    : 10 * weightKg + 6.25 * heightCm - 5 * age - 161;
+}
+
+// Daily target is based on BMR, then adjusted by goal.
 export function calculateCalorieGoal(
   weightKg: number,
   heightCm: number,
   age: number,
   sex: 'male' | 'female',
-  activityLevel: keyof typeof ACTIVITY_MULTIPLIERS,
+  _activityLevel: keyof typeof ACTIVITY_MULTIPLIERS,
   goal: 'lose' | 'maintain' | 'gain',
 ): number {
-  const bmr = sex === 'male'
-    ? 10 * weightKg + 6.25 * heightCm - 5 * age + 5
-    : 10 * weightKg + 6.25 * heightCm - 5 * age - 161;
+  const bmr = calculateBMR(weightKg, heightCm, age, sex);
 
-  const tdee = bmr * ACTIVITY_MULTIPLIERS[activityLevel];
   const adj = goal === 'lose' ? -500 : goal === 'gain' ? 500 : 0;
-  return Math.round(tdee + adj);
+  return Math.round(bmr + adj);
 }
 
 export function calculateMacros(

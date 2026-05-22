@@ -1,4 +1,4 @@
-# sandbox-app-template
+# Nourish
 
 Monorepo: Bun workspaces + Turborepo.
 
@@ -12,7 +12,6 @@ packages/
     index.html               Frontend HTML entry
     vite/plugins/
       hono-dev-plugin.ts     Intercepts /api/* in dev, forwards to Hono via SSR
-      runable-analytics-plugin.ts
     src/
       api/
         index.ts             Hono routes (.basePath('api')) + AppType export
