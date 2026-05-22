@@ -19,12 +19,9 @@ type Draft = {
   name: string;
   age: string;
   sex: 'male' | 'female';
-  metricSystem: boolean;
   weightKg: string;
-  heightCm: string;
-  // imperial raw
-  weightLbs: string;
-  heightIn: string;
+  heightFt: string;   // feet part of height
+  heightIn: string;   // inches part of height
   activityLevel: NourishUser['activityLevel'];
   goal: NourishUser['goal'];
   calorieGoal: number | null; // null = auto-calculated
@@ -37,10 +34,8 @@ export function Onboarding({ onComplete }: OnboardingProps) {
     name: '',
     age: '',
     sex: 'male',
-    metricSystem: true,
     weightKg: '',
-    heightCm: '',
-    weightLbs: '',
+    heightFt: '',
     heightIn: '',
     activityLevel: 'moderate',
     goal: 'maintain',
@@ -50,13 +45,9 @@ export function Onboarding({ onComplete }: OnboardingProps) {
 
   const up = (patch: Partial<Draft>) => setDraft(d => ({ ...d, ...patch }));
 
-  // Derive metric values always
-  const weightKg = draft.metricSystem
-    ? parseFloat(draft.weightKg) || 0
-    : Math.round((parseFloat(draft.weightLbs) || 0) * 0.453592 * 10) / 10;
-  const heightCm = draft.metricSystem
-    ? parseFloat(draft.heightCm) || 0
-    : Math.round((parseFloat(draft.heightIn) || 0) * 2.54 * 10) / 10;
+  // Hybrid: weight in kg, height in feet+inches → always store as cm
+  const weightKg = parseFloat(draft.weightKg) || 0;
+  const heightCm = Math.round(((parseFloat(draft.heightFt) || 0) * 12 + (parseFloat(draft.heightIn) || 0)) * 2.54 * 10) / 10;
   const age = parseInt(draft.age) || 0;
 
   const computedCalories = (weightKg && heightCm && age)
@@ -77,7 +68,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
       goal: draft.goal,
       calorieGoal,
       waterGoalLiters: draft.waterGoalLiters,
-      metricSystem: draft.metricSystem,
+      metricSystem: true, // always store metric internally
       macroTargets: macros,
       manualCalorieOverride: false,
       notifications: { breakfast: false, lunch: false, dinner: false, hydration: false },
@@ -194,13 +185,7 @@ function Step1({ draft, up, onNext, onBack }: {
             <button className={draft.sex === 'female' ? 'active' : ''} onClick={() => up({ sex: 'female' })}>Female</button>
           </div>
         </div>
-        <div>
-          <label className="label-caps" style={{ display: 'block', marginBottom: 8 }}>Units</label>
-          <div className="segmented">
-            <button className={draft.metricSystem ? 'active' : ''} onClick={() => up({ metricSystem: true })}>Metric (kg/cm)</button>
-            <button className={!draft.metricSystem ? 'active' : ''} onClick={() => up({ metricSystem: false })}>Imperial (lbs/in)</button>
-          </div>
-        </div>
+
       </div>
       <div style={{ marginTop: 32 }}>
         <button className="btn-primary" onClick={onNext} disabled={!valid} style={{ opacity: valid ? 1 : 0.5 }}>
@@ -216,10 +201,7 @@ function Step1({ draft, up, onNext, onBack }: {
 function Step2({ draft, up, onNext, onBack }: {
   draft: Draft; up: (p: Partial<Draft>) => void; onNext: () => void; onBack: () => void;
 }) {
-  const isMetric = draft.metricSystem;
-  const weightVal = isMetric ? draft.weightKg : draft.weightLbs;
-  const heightVal = isMetric ? draft.heightCm : draft.heightIn;
-  const valid = weightVal && heightVal;
+  const valid = draft.weightKg && draft.heightFt;
 
   return (
     <div style={{ padding: '24px 24px 40px' }}>
@@ -230,24 +212,38 @@ function Step2({ draft, up, onNext, onBack }: {
       <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 28, color: 'var(--text)', margin: '0 0 6px' }}>Body stats</h2>
       <p style={{ fontFamily: 'var(--font-sans)', fontSize: 14, color: 'var(--text-secondary)', margin: '0 0 28px' }}>Used to calculate your calorie target</p>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <div style={{ display: 'flex', gap: 12 }}>
-          <div style={{ flex: 1 }}>
-            <label className="label-caps" style={{ display: 'block', marginBottom: 8 }}>Weight ({isMetric ? 'kg' : 'lbs'})</label>
-            <input
-              className="input" type="number"
-              placeholder={isMetric ? '70' : '154'}
-              value={weightVal}
-              onChange={e => up(isMetric ? { weightKg: e.target.value } : { weightLbs: e.target.value })}
-            />
-          </div>
-          <div style={{ flex: 1 }}>
-            <label className="label-caps" style={{ display: 'block', marginBottom: 8 }}>Height ({isMetric ? 'cm' : 'in'})</label>
-            <input
-              className="input" type="number"
-              placeholder={isMetric ? '175' : '69'}
-              value={heightVal}
-              onChange={e => up(isMetric ? { heightCm: e.target.value } : { heightIn: e.target.value })}
-            />
+        <div>
+          <label className="label-caps" style={{ display: 'block', marginBottom: 8 }}>Weight (kg)</label>
+          <input
+            className="input" type="number"
+            placeholder="e.g. 70"
+            value={draft.weightKg}
+            onChange={e => up({ weightKg: e.target.value })}
+          />
+        </div>
+        <div>
+          <label className="label-caps" style={{ display: 'block', marginBottom: 8 }}>Height</label>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <div style={{ flex: 1, position: 'relative' }}>
+              <input
+                className="input" type="number"
+                placeholder="5"
+                value={draft.heightFt}
+                onChange={e => up({ heightFt: e.target.value })}
+                style={{ paddingRight: 32 }}
+              />
+              <span style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', fontFamily: 'var(--font-mono)', fontSize: 13, color: 'var(--text-secondary)', pointerEvents: 'none' }}>ft</span>
+            </div>
+            <div style={{ flex: 1, position: 'relative' }}>
+              <input
+                className="input" type="number"
+                placeholder="10"
+                value={draft.heightIn}
+                onChange={e => up({ heightIn: e.target.value })}
+                style={{ paddingRight: 32 }}
+              />
+              <span style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', fontFamily: 'var(--font-mono)', fontSize: 13, color: 'var(--text-secondary)', pointerEvents: 'none' }}>in</span>
+            </div>
           </div>
         </div>
         <div>

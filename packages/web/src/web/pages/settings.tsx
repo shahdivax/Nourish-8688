@@ -506,9 +506,11 @@ export default function SettingsPage({
     }
   };
 
-  const weightDisplay = user.metricSystem
-    ? `${user.weightKg} kg`
-    : `${Math.round(user.weightKg * 2.20462 * 10) / 10} lbs`;
+  // Hybrid display: kg for weight, ft+in for height
+  const weightDisplay = `${user.weightKg} kg`;
+  const totalIn = Math.round(user.heightCm / 2.54);
+  const hFt = Math.floor(totalIn / 12);
+  const hIn = totalIn % 12;
 
   const notifs = user.notifications || { breakfast: false, lunch: false, dinner: false, hydration: false };
 
@@ -527,7 +529,7 @@ export default function SettingsPage({
 
         {/* Profile */}
         <Section label="Profile">
-          <Row label="Edit Profile" icon={<User size={16} />} value={user.name} onTap={() => { setEditValues({ ...user }); setEditSheet('profile'); }} />
+          <Row label="Edit Profile" icon={<User size={16} />} value={`${user.name} · ${user.weightKg}kg · ${hFt}'${hIn}"`} onTap={() => { setEditValues({ ...user }); setEditSheet('profile'); }} />
           <Row label="Log Today's Weight" icon={<Target size={16} />} value={weightDisplay} onTap={() => setWeightSheet(true)} last />
         </Section>
 
@@ -651,48 +653,45 @@ export default function SettingsPage({
             </div>
           </div>
           <div>
-            <label className="label-caps" style={{ display: 'block', marginBottom: 8 }}>Units</label>
-            <div className="segmented">
-              <button className={editValues.metricSystem ? 'active' : ''} onClick={() => setEditValues(v => ({ ...v, metricSystem: true }))}>Metric (kg/cm)</button>
-              <button className={!editValues.metricSystem ? 'active' : ''} onClick={() => setEditValues(v => ({ ...v, metricSystem: false }))}>Imperial (lbs/in)</button>
-            </div>
+            <label className="label-caps" style={{ display: 'block', marginBottom: 8 }}>Weight (kg)</label>
+            <input
+              className="input" type="number"
+              placeholder="e.g. 70"
+              value={editValues.weightKg || ''}
+              onChange={e => setEditValues(v => ({ ...v, weightKg: parseFloat(e.target.value) || 0 }))}
+            />
           </div>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <div style={{ flex: 1 }}>
-              <label className="label-caps" style={{ display: 'block', marginBottom: 8 }}>
-                Weight ({editValues.metricSystem ? 'kg' : 'lbs'})
-              </label>
-              <input
-                className="input" type="number"
-                value={editValues.metricSystem
-                  ? (editValues.weightKg || '')
-                  : (Math.round(editValues.weightKg * 2.20462 * 10) / 10 || '')}
-                onChange={e => {
-                  const raw = parseFloat(e.target.value) || 0;
-                  setEditValues(v => ({
-                    ...v,
-                    weightKg: editValues.metricSystem ? raw : Math.round(raw * 0.453592 * 10) / 10,
-                  }));
-                }}
-              />
-            </div>
-            <div style={{ flex: 1 }}>
-              <label className="label-caps" style={{ display: 'block', marginBottom: 8 }}>
-                Height ({editValues.metricSystem ? 'cm' : 'in'})
-              </label>
-              <input
-                className="input" type="number"
-                value={editValues.metricSystem
-                  ? (editValues.heightCm || '')
-                  : (Math.round(editValues.heightCm / 2.54 * 10) / 10 || '')}
-                onChange={e => {
-                  const raw = parseFloat(e.target.value) || 0;
-                  setEditValues(v => ({
-                    ...v,
-                    heightCm: editValues.metricSystem ? raw : Math.round(raw * 2.54 * 10) / 10,
-                  }));
-                }}
-              />
+          <div>
+            <label className="label-caps" style={{ display: 'block', marginBottom: 8 }}>Height</label>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <div style={{ flex: 1, position: 'relative' }}>
+                <input
+                  className="input" type="number"
+                  placeholder="5"
+                  value={Math.floor(Math.round(editValues.heightCm / 2.54) / 12) || ''}
+                  onChange={e => {
+                    const ft = parseInt(e.target.value) || 0;
+                    const curIn = Math.round(editValues.heightCm / 2.54) % 12;
+                    setEditValues(v => ({ ...v, heightCm: Math.round((ft * 12 + curIn) * 2.54 * 10) / 10 }));
+                  }}
+                  style={{ paddingRight: 32 }}
+                />
+                <span style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', fontFamily: 'var(--font-mono)', fontSize: 13, color: 'var(--text-secondary)', pointerEvents: 'none' }}>ft</span>
+              </div>
+              <div style={{ flex: 1, position: 'relative' }}>
+                <input
+                  className="input" type="number"
+                  placeholder="10"
+                  value={Math.round(editValues.heightCm / 2.54) % 12 || ''}
+                  onChange={e => {
+                    const inches = parseInt(e.target.value) || 0;
+                    const curFt = Math.floor(Math.round(editValues.heightCm / 2.54) / 12);
+                    setEditValues(v => ({ ...v, heightCm: Math.round((curFt * 12 + inches) * 2.54 * 10) / 10 }));
+                  }}
+                  style={{ paddingRight: 32 }}
+                />
+                <span style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', fontFamily: 'var(--font-mono)', fontSize: 13, color: 'var(--text-secondary)', pointerEvents: 'none' }}>in</span>
+              </div>
             </div>
           </div>
           <div>
@@ -789,11 +788,11 @@ export default function SettingsPage({
       <BottomSheet open={weightSheet} onClose={() => setWeightSheet(false)} title="Log Weight">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <p style={{ fontFamily: 'var(--font-sans)', fontSize: 13, color: 'var(--text-secondary)', margin: 0 }}>
-            Enter in {user.metricSystem ? 'kg' : 'lbs'} — stored as kg internally.
+            Enter weight in kg.
           </p>
           <input
             className="input" type="number"
-            placeholder={user.metricSystem ? 'e.g. 72.5' : 'e.g. 160'}
+            placeholder="e.g. 72.5"
             value={weightInput}
             onChange={e => setWeightInput(e.target.value)}
             style={{ fontFamily: 'var(--font-mono)', fontSize: 20 }}
@@ -803,7 +802,7 @@ export default function SettingsPage({
             onClick={() => {
               const raw = parseFloat(weightInput);
               if (!raw) return;
-              const kg = user.metricSystem ? raw : Math.round(raw * 0.453592 * 10) / 10;
+              const kg = raw;
               onLogWeight(kg);
               // Auto-recalculate calorie goal if not manually overridden
               if (!user.manualCalorieOverride) {

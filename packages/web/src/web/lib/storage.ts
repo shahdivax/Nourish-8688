@@ -108,9 +108,13 @@ export function getUser(): NourishUser | null {
     const raw = localStorage.getItem(KEYS.user);
     if (!raw) return null;
     const u = JSON.parse(raw) as NourishUser;
+    // Defensive guards for fields added in later versions
     if (u.manualCalorieOverride === undefined) u.manualCalorieOverride = false;
     if (!u.notifications) u.notifications = { breakfast: false, lunch: false, dinner: false, hydration: false };
     if (u.darkMode === undefined) u.darkMode = false;
+    if (!u.macroTargets) u.macroTargets = { protein: Math.round(u.calorieGoal * 0.25 / 4), carbs: Math.round(u.calorieGoal * 0.45 / 4), fat: Math.round(u.calorieGoal * 0.30 / 9) };
+    if (u.waterGoalLiters === undefined) u.waterGoalLiters = 2.5;
+    if (u.metricSystem === undefined) u.metricSystem = true;
     return u;
   } catch { return null; }
 }
