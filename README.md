@@ -55,36 +55,22 @@ Dev servers are started and managed automatically — no need to run them manual
 
 ## Vercel
 
-This repo now includes Vercel config for both the repo root and the `packages/web` workspace, because Vercel monorepo detection may run the project from either location depending on your dashboard settings.
+This repo now includes Vercel config in the `packages/web` workspace.
 
 - Install command: `bun install`
-- Build command: `cd packages/web && bun run build`
-- Output directory: `packages/web/dist`
-- SPA routing: non-file requests fall back to `index.html`
-- API routes: `/api/*` are served by [api/[[...route]].ts](/home/avinyaa/Nourish-8688/api/[[...route]].ts:1)
-
-If your Vercel project Root Directory is `packages/web`, the workspace-local config applies instead:
-
-- Config: [packages/web/vercel.json](/home/avinyaa/Nourish-8688/packages/web/vercel.json:1)
 - Build command: `bun run build`
 - Output directory: `dist`
+- SPA routing: non-file requests fall back to `index.html`
+- Config: [packages/web/vercel.json](/home/avinyaa/Nourish-8688/packages/web/vercel.json:1)
 - API routes: `/api/*` are served by [packages/web/api/[[...route]].ts](/home/avinyaa/Nourish-8688/packages/web/api/[[...route]].ts:1)
 
 If Vercel already has old settings saved for this project, clear them or set:
 
-- Preferred with current logs:
 - Root Directory: `packages/web`
 - Framework Preset: `Vite`
 - Install Command: `bun install`
 - Build Command: `bun run build`
 - Output Directory: `dist`
-
-- Alternate repo-root setup:
-- Root Directory: `.`
-- Framework Preset: `Vite`
-- Install Command: `bun install`
-- Build Command: `cd packages/web && bun run build`
-- Output Directory: `packages/web/dist`
 
 ## Database
 
