@@ -1,3 +1,3 @@
-import app from "../src/api/index.ts";
+import app from "../src/api/index.js";
 
 export default app.fetch;
