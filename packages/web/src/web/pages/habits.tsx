@@ -13,9 +13,15 @@ const COLORS: HabitColor[] = [
 
 const EMOJIS = ['💪', '📚', '🏃', '🧘', '💧', '🥗', '🎯', '✍️', '🎸', '💻', '🌿', '🛌', '🚴', '🧠', '🎨'];
 
-const GRID_MONTHS = 6;
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const DAY_LABEL_ROWS = [1, 3, 5]; // Mon / Wed / Fri like GitHub
+const HISTORY_RANGE_OPTIONS = [
+  { months: 1, label: 'Past month', shortLabel: '1 mo' },
+  { months: 3, label: 'Last 3 months', shortLabel: '3 mo' },
+  { months: 6, label: 'Last 6 months', shortLabel: '6 mo' },
+] as const;
+
+type HistoryRangeMonths = (typeof HISTORY_RANGE_OPTIONS)[number]['months'];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -33,9 +39,9 @@ function daysBetween(a: string, b: string): number {
   return Math.round((new Date(b + 'T12:00:00').getTime() - new Date(a + 'T12:00:00').getTime()) / 86400000);
 }
 
-function sixMonthsAgo(): string {
+function monthsAgo(months: number): string {
   const d = new Date();
-  d.setMonth(d.getMonth() - GRID_MONTHS);
+  d.setMonth(d.getMonth() - months);
   return d.toISOString().split('T')[0];
 }
 
@@ -56,10 +62,10 @@ function cellState(date: string | null, habit: Habit, failedDates: Set<string>):
   return failedDates.has(date) ? 'missed' : 'done';
 }
 
-/** Six months ending today; weeks as columns (oldest left, current month right). */
-function buildGitHubWeeks(): (string | null)[][] {
+/** History window ending today; weeks as columns (oldest left, current month right). */
+function buildGitHubWeeks(months: number): (string | null)[][] {
   const today = todayStr();
-  const rangeStart = sixMonthsAgo();
+  const rangeStart = monthsAgo(months);
   let d = weekStartSunday(rangeStart);
   const flat: (string | null)[] = [];
   while (d <= today) {
@@ -105,9 +111,9 @@ function getCurrentStreak(habit: Habit, failedDates: Set<string>): number {
   return streak;
 }
 
-function getCompletionRate(habit: Habit, failedDates: Set<string>): number {
+function getCompletionRate(habit: Habit, failedDates: Set<string>, months: number): number {
   const today = todayStr();
-  const windowStart = sixMonthsAgo();
+  const windowStart = monthsAgo(months);
   const trackFrom = habit.createdAt > windowStart ? habit.createdAt : windowStart;
   const total = daysBetween(trackFrom, today) + 1;
   if (total <= 0) return 100;
@@ -157,18 +163,22 @@ function habitCellStyle(state: CellState, habit: Habit, isToday: boolean): React
 function HabitGrid({
   habit,
   failedDates,
+  historyMonths,
+  historyLabel,
   onToggle,
 }: {
   habit: Habit;
   failedDates: Set<string>;
+  historyMonths: HistoryRangeMonths;
+  historyLabel: string;
   onToggle: (date: string) => void;
 }) {
   const today = todayStr();
-  const weeks = useMemo(() => buildGitHubWeeks(), []);
+  const weeks = useMemo(() => buildGitHubWeeks(historyMonths), [historyMonths]);
   const monthLabels = useMemo(() => monthLabelsForWeeks(weeks), [weeks]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const streak = getCurrentStreak(habit, failedDates);
-  const rate = getCompletionRate(habit, failedDates);
+  const rate = getCompletionRate(habit, failedDates, historyMonths);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -226,7 +236,7 @@ function HabitGrid({
             <div style={{ fontFamily: 'var(--font-mono)', fontSize: 16, fontWeight: 700, color: habit.color }}>
               {rate}%
             </div>
-            <div style={{ fontFamily: 'var(--font-sans)', fontSize: 10, color: 'var(--text-secondary)' }}>6 mo</div>
+            <div style={{ fontFamily: 'var(--font-sans)', fontSize: 10, color: 'var(--text-secondary)' }}>{historyLabel}</div>
           </div>
         </div>
       </div>
@@ -490,6 +500,8 @@ interface HabitsPageProps {
 export default function HabitsPage({ data, onSave }: HabitsPageProps) {
   const [createOpen, setCreateOpen] = useState(false);
   const [editHabit, setEditHabit] = useState<Habit | null>(null);
+  const [historyMonths, setHistoryMonths] = useState<HistoryRangeMonths>(6);
+  const selectedHistoryRange = HISTORY_RANGE_OPTIONS.find(option => option.months === historyMonths) ?? HISTORY_RANGE_OPTIONS[2];
 
   const handleToggle = (habit: Habit, date: string) => {
     const failed = new Set(data.failedDates[habit.id] ?? []);
@@ -565,6 +577,22 @@ export default function HabitsPage({ data, onSave }: HabitsPageProps) {
 
       {/* Habits list */}
       <div style={{ padding: '0 16px' }}>
+        {data.habits.length > 0 && (
+          <div style={{ marginBottom: 14 }}>
+            <div className="label-caps" style={{ marginBottom: 8 }}>History range</div>
+            <div className="segmented">
+              {HISTORY_RANGE_OPTIONS.map(option => (
+                <button
+                  key={option.months}
+                  className={historyMonths === option.months ? 'active' : undefined}
+                  onClick={() => setHistoryMonths(option.months)}
+                >
+                  {option.shortLabel}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         {data.habits.length === 0 ? (
           <div style={{
             textAlign: 'center', padding: '60px 20px',
@@ -604,6 +632,8 @@ export default function HabitsPage({ data, onSave }: HabitsPageProps) {
               <HabitGrid
                 habit={habit}
                 failedDates={new Set(data.failedDates[habit.id] ?? [])}
+                historyMonths={historyMonths}
+                historyLabel={selectedHistoryRange.shortLabel}
                 onToggle={(date) => handleToggle(habit, date)}
               />
             </div>
@@ -618,7 +648,7 @@ export default function HabitsPage({ data, onSave }: HabitsPageProps) {
           fontFamily: 'var(--font-sans)', fontSize: 12,
           color: 'var(--text-secondary)', textAlign: 'center',
         }}>
-          Past 6 months · scroll for history · tap a filled day to mark missed · muted cells = not tracked yet
+          {selectedHistoryRange.label} · scroll for history · tap a filled day to mark missed · muted cells = not tracked yet
         </div>
       )}
 

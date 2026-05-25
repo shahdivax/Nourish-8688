@@ -23,6 +23,11 @@ export function CalorieRing({
 }: CalorieRingProps) {
   const [animated, setAnimated] = useState(false);
 
+  const formatMetric = (value: number) => {
+    if (!Number.isFinite(value)) return '0';
+    return Number(value.toFixed(2)).toString();
+  };
+
   useEffect(() => {
     const t = setTimeout(() => setAnimated(true), 100);
     return () => clearTimeout(t);
@@ -44,7 +49,7 @@ export function CalorieRing({
       <div style={{ flex: 1 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
           <span style={{ fontFamily: 'var(--font-sans)', fontSize: 11, color: 'var(--text-secondary)', fontWeight: 500 }}>{label}</span>
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text)' }}>{value}g</span>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text)' }}>{formatMetric(value)}g</span>
         </div>
         <div style={{
           height: 4,
@@ -110,7 +115,7 @@ export function CalorieRing({
             color: over ? 'var(--accent)' : 'var(--text)',
             lineHeight: 1,
           }}>
-            {over ? `+${consumed - target}` : remaining}
+            {over ? `+${formatMetric(consumed - target)}` : formatMetric(remaining)}
           </div>
           <div style={{
             fontFamily: 'var(--font-sans)',
@@ -127,7 +132,7 @@ export function CalorieRing({
             color: 'var(--text-secondary)',
             marginTop: 2,
           }}>
-            {consumed} / {target}
+            {formatMetric(consumed)} / {formatMetric(target)}
           </div>
         </div>
       </div>
@@ -138,7 +143,7 @@ export function CalorieRing({
         gap: 16,
         width: '100%',
       }}>
-        {macroBar(protein, proteinTarget, '#1C1C1E', 'Protein')}
+        {macroBar(protein, proteinTarget, '#2563EB', 'Protein')}
         {macroBar(carbs, carbsTarget, '#D97706', 'Carbs')}
         {macroBar(fat, fatTarget, '#E11D48', 'Fat')}
       </div>
