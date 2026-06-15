@@ -1,4 +1,4 @@
-import type { NourishUser } from './storage';
+import type { DayLog, NourishLogs, NourishUser } from './storage';
 
 export const ACTIVITY_MULTIPLIERS = {
   sedentary: 1.2,
@@ -17,6 +17,51 @@ export function calculateBMR(
   return sex === 'male'
     ? 10 * weightKg + 6.25 * heightCm - 5 * age + 5
     : 10 * weightKg + 6.25 * heightCm - 5 * age - 161;
+}
+
+export const CALORIES_PER_KG = 7700;
+export const BASE_CALORIE_BUFFER = 200;
+
+export function isProfileComplete(user: NourishUser | null): user is NourishUser & { goalWeightKg: number } {
+  return !!(
+    user &&
+    user.weightKg > 0 &&
+    user.goalWeightKg !== undefined &&
+    user.goalWeightKg > 0 &&
+    user.heightCm > 0 &&
+    user.age > 0 &&
+    (user.sex === 'male' || user.sex === 'female')
+  );
+}
+
+export function calculateBaseCalories(user: Pick<NourishUser, 'weightKg' | 'heightCm' | 'age' | 'sex'>): {
+  bmr: number;
+  actualBaseCalories: number;
+} {
+  const bmr = Math.round(calculateBMR(user.weightKg, user.heightCm, user.age, user.sex));
+  return { bmr, actualBaseCalories: bmr + BASE_CALORIE_BUFFER };
+}
+
+export function calculateGoalCaloriesTotal(currentWeightKg: number, goalWeightKg: number): number {
+  return Math.round(Math.max(currentWeightKg - goalWeightKg, 0) * CALORIES_PER_KG);
+}
+
+export function calculateDailyCaloriesEaten(log?: DayLog): number {
+  return Math.round((log?.foods ?? []).reduce((sum, food) => sum + (food.calories || 0), 0));
+}
+
+export function calculateDailyDelta(actualBaseCalories: number, log?: DayLog): number {
+  return actualBaseCalories - calculateDailyCaloriesEaten(log);
+}
+
+export function calculateCumulativeDelta(logs: NourishLogs, actualBaseCalories: number): number {
+  return Object.values(logs).reduce((sum, log) => sum + calculateDailyDelta(actualBaseCalories, log), 0);
+}
+
+export function calculateRemainingGoalCalories(user: NourishUser & { goalWeightKg: number }, logs: NourishLogs): number {
+  const { actualBaseCalories } = calculateBaseCalories(user);
+  const total = calculateGoalCaloriesTotal(user.weightKg, user.goalWeightKg);
+  return Math.max(total - calculateCumulativeDelta(logs, actualBaseCalories), 0);
 }
 
 // Daily target is based on BMR, then adjusted by goal.

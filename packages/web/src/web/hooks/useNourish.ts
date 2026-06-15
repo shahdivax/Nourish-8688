@@ -1,12 +1,11 @@
 import { useReducer, useEffect, useCallback, useRef } from 'react';
 import {
-  isOnboarded, setOnboarded,
   getUser, saveUser,
   getLogs, saveLogs, getDayLog, saveDayLog, clearAll,
   getHabitsData, saveHabitsData,
   type NourishUser, type FoodEntry, type DayLog, type NourishLogs, type HabitsData,
 } from '../lib/storage';
-import { calculateCalorieGoal, calculateMacros, todayKey } from '../lib/calculations';
+import { todayKey } from '../lib/calculations';
 
 // ─── State ───────────────────────────────────────────────────────────────────
 
@@ -22,7 +21,7 @@ export interface AppState {
   currentDate: string;
 }
 
-export type TabId = 'home' | 'log' | 'insights' | 'habits' | 'settings';
+export type TabId = 'home' | 'log' | 'settings';
 
 export interface Toast {
   id: string;
@@ -93,24 +92,7 @@ function reducer(state: AppState, action: Action): AppState {
       const logs = { ...state.logs, [action.date]: { ...existing, weight: action.weight } };
       if (!state.user) return { ...state, logs };
 
-      const updatedUser = state.user.manualCalorieOverride
-        ? { ...state.user, weightKg: action.weight }
-        : (() => {
-            const calorieGoal = calculateCalorieGoal(
-              action.weight,
-              state.user.heightCm,
-              state.user.age,
-              state.user.sex,
-              state.user.activityLevel,
-              state.user.goal,
-            );
-            return {
-              ...state.user,
-              weightKg: action.weight,
-              calorieGoal,
-              macroTargets: calculateMacros(calorieGoal, state.user.goal),
-            };
-          })();
+      const updatedUser = { ...state.user, weightKg: action.weight };
 
       return { ...state, logs, user: updatedUser };
     }
@@ -140,7 +122,7 @@ function reducer(state: AppState, action: Action): AppState {
 
     case 'RESET_ALL':
       return {
-        onboarded: false,
+        onboarded: true,
         user: null,
         logs: {},
         habitsData: { habits: [], failedDates: {} },
@@ -177,7 +159,7 @@ function reducer(state: AppState, action: Action): AppState {
 
 function init(): AppState {
   return {
-    onboarded: isOnboarded(),
+    onboarded: true,
     user: getUser(),
     logs: getLogs(),
     habitsData: getHabitsData(),
@@ -194,10 +176,6 @@ export function useNourish() {
   const [state, dispatch] = useReducer(reducer, undefined, init);
 
   // Sync to localStorage on relevant changes
-  useEffect(() => {
-    if (state.onboarded) setOnboarded();
-  }, [state.onboarded]);
-
   useEffect(() => {
     if (state.user) saveUser(state.user);
   }, [state.user]);

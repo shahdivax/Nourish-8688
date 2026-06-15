@@ -1,7 +1,7 @@
 import React from 'react';
-import { Home, PlusCircle, BarChart2, Settings, Sprout } from 'lucide-react';
+import { Home, PlusCircle, Settings } from 'lucide-react';
 
-export type TabId = 'home' | 'log' | 'insights' | 'habits' | 'settings';
+export type TabId = 'home' | 'log' | 'settings';
 
 interface TabBarProps {
   active: TabId;
@@ -11,8 +11,6 @@ interface TabBarProps {
 const tabs: { id: TabId; label: string; icon: React.ReactNode; large?: boolean }[] = [
   { id: 'home', label: 'Home', icon: <Home size={20} /> },
   { id: 'log', label: 'Log', icon: <PlusCircle size={24} />, large: true },
-  { id: 'insights', label: 'Insights', icon: <BarChart2 size={20} /> },
-  { id: 'habits', label: 'Habits', icon: <Sprout size={20} /> },
   { id: 'settings', label: 'Settings', icon: <Settings size={20} /> },
 ];
 

@@ -6,6 +6,7 @@ export interface NourishUser {
   sex: 'male' | 'female';
   heightCm: number;
   weightKg: number;
+  goalWeightKg?: number;
   activityLevel: 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active';
   goal: 'lose' | 'maintain' | 'gain';
   calorieGoal: number;

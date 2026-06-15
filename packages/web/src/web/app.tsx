@@ -1,28 +1,14 @@
 import React from 'react';
-import { Onboarding } from './components/Onboarding';
 import { TabBar } from './components/TabBar';
 import { ToastContainer } from './components/Toast';
 import HomePage from './pages/home';
 import LogPage from './pages/log';
-import InsightsPage from './pages/insights';
-import HabitsPage from './pages/habits';
 import SettingsPage from './pages/settings';
 import { useNourish } from './hooks/useNourish';
-import type { NourishUser } from './lib/storage';
 
 export default function App() {
   const nourish = useNourish();
   const { state, todayLog } = nourish;
-
-  if (!state.onboarded) {
-    return (
-      <Onboarding
-        onComplete={(user: NourishUser) => nourish.completeOnboarding(user)}
-      />
-    );
-  }
-
-  const user = state.user!;
 
   return (
     <div style={{
@@ -39,13 +25,14 @@ export default function App() {
         {/* HOME */}
         <div style={{ display: state.activeTab === 'home' ? 'block' : 'none' }}>
           <HomePage
-            user={user}
+            user={state.user}
+            logs={state.logs}
             todayLog={todayLog}
             currentDate={state.currentDate}
-            onSetWater={(g) => nourish.setWater(state.currentDate, g)}
             onRemoveFood={(id) => nourish.removeFood(state.currentDate, id)}
             onEditFood={(entry) => { nourish.setEditEntry(entry); nourish.setTab('log'); }}
             onLogTap={() => nourish.setTab('log')}
+            onSettingsTap={() => nourish.setTab('settings')}
             onDeletedToast={() => nourish.showToast('Entry deleted')}
           />
         </div>
@@ -62,26 +49,10 @@ export default function App() {
           />
         </div>
 
-        {/* INSIGHTS */}
-        <div style={{ display: state.activeTab === 'insights' ? 'block' : 'none' }}>
-          <InsightsPage
-            user={user}
-            logs={state.logs}
-          />
-        </div>
-
-        {/* HABITS */}
-        <div style={{ display: state.activeTab === 'habits' ? 'block' : 'none' }}>
-          <HabitsPage
-            data={state.habitsData}
-            onSave={nourish.saveHabits}
-          />
-        </div>
-
         {/* SETTINGS */}
         <div style={{ display: state.activeTab === 'settings' ? 'block' : 'none' }}>
           <SettingsPage
-            user={user}
+            user={state.user}
             currentDate={state.currentDate}
             onUpdateUser={(u) => { nourish.updateUser(u); nourish.showToast('Saved'); }}
             onExportCSV={() => { nourish.exportCSV(); nourish.showToast('Exported!'); }}
